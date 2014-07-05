@@ -1,11 +1,14 @@
 #!/usr/local/bin/python
 # -*- coding: utf-8 -*-
 
+import urllib, urllib2, base64
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
+from kivy.uix.popup import Popup
+from kivy.uix.label import Label
 from kivy.network.urlrequest import UrlRequest
-import html_parser
+import html_parser, http_helper
 from eventwidget import EventWidget, EventListbox
 
 
@@ -17,29 +20,29 @@ Builder.load_string("""
         pos: root.pos
         size: root.size
     Label: 
-      color: .1,.3,.6,1
+      color: 0,.5,1,1
       text: 'YesGroup'
       pos_hint: {'center_x': .5, 'center_y':.8}
       size_hint: None, .1
       font_size: 48
     Label: 
-      color: .1,.3,.6,1
-      text: 'Email :'
+      color: 0,.5,1,1
+      text: 'Pseudonyme :'
       pos_hint: {'center_x': .5, 'center_y':.55}
       size_hint: .2, .1
     TextInput: 
-      id: ti_email
+      id: ti_username
       color: .1,.3,.6,1
       pos_hint: {'center_x': .5, 'center_y':.5}
       size_hint: .4, .05
       valign: 'middle'
     Label: 
-      color: .1,.3,.6,1
+      color: 0,.5,1,1
       text: 'Mot de passe :'
       pos_hint: {'center_x': .5, 'center_y':.4}
       size_hint: .2, .1
     TextInput: 
-      id: ti_pwd
+      id: ti_password
       color: .1,.3,.6,1
       pos_hint: {'center_x': .5, 'center_y':.35}
       size_hint: .4, .05
@@ -62,6 +65,7 @@ Builder.load_string("""
         pos: root.x, root.height * .9
         size: root.width, root.height * .1
     Label:
+      id: lbl_username
       color: 1,1,1,1
       text: 'Accueil'
       pos_hint: {'center_x': .5, 'center_y':.95}
@@ -156,6 +160,9 @@ Builder.load_string("""
 """)
 
 
+cookie = ''
+
+
 class MenuScreen(Screen):
 
   def show_events(self, *args):
@@ -173,8 +180,34 @@ class MenuScreen(Screen):
       
 class LoginScreen(Screen):
 
+  def __init__(self, **kwargs):
+    super(LoginScreen, self).__init__(**kwargs)
+    
   def login(self):
-    sm.current = 'menu'
+    username = self.ids['ti_username'].text
+    password = self.ids['ti_password'].text
+    http_helper.auth("http://www.yesgroup.fr/", username, password)
+    page = http_helper.fetch('http://www.yesgroup.fr/')
+    hidden = html_parser.get_hidden_field(page)
+    form_data = {'username': username, 'password' :password, 'Submit': 'Connexion',
+      'option': 'com_users', 'task': 'user.login', 'return': 'Lw==', hidden:1}
+    page = http_helper.fetch_auth_form('http://www.yesgroup.fr/', form_data)
+    self.check_login(page)
+    
+  def get_hidden_field(self, req, result):
+    self.hidden = html_parser.get_hidden_field(result)
+    print self.hidden
+    
+  def check_login(self, page):
+    username = html_parser.check_login(page)
+    if username:
+      sm.current = 'menu'
+      sm.current_screen.ids['lbl_username'].text = username
+    else:
+      popup = Popup(title='Message système',
+        content=Label(text='Echec.'),
+        size_hint=[.5, .5])
+      popup.open()
     
     
 class EventScreen(Screen):
@@ -215,11 +248,13 @@ sm.add_widget(LoginScreen(name='login'))
 sm.add_widget(ProfileScreen(name='profile'))
 sm.add_widget(EventScreen(name='events'))
 
+
 class YesGroupApp(App):
 
   def build(self):
     sm.current = 'login'
     return sm
 
+    
 if __name__ == '__main__':
   YesGroupApp().run()

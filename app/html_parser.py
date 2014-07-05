@@ -59,3 +59,40 @@ def upcoming_events(page):
     events.append(Event(td_event))
 
   return events
+  
+def get_login_form(page):
+  form_start = page.find('<form action="/" method="post" name="form-login" id="login-form"')
+  if form_start == -1:
+    return None
+  else:
+    form_end = page.find('</form>', form_start) + 7
+    return page[form_start:form_end]
+  
+def check_login(page):
+  form = get_login_form(page)
+  print form
+  i = form.find('Hi ')
+  if i == -1:
+    return None
+  else:
+    name_start = i  + 3
+    name_end = form.find(',', name_start)
+    username = form[name_start:name_end]
+    return username
+  
+def get_hidden_field(page):
+  form = get_login_form(page)
+  i = 0
+  last_input = i
+  n = len(form)
+  while i < n:
+    i = form.find('<input type="hidden"', i)
+    if i == -1:
+      break
+    else:
+      last_input = i
+      i += 1
+  hfield_start = form.find('name="', last_input) + 6
+  hfield_end = form.find('"', hfield_start)
+  return form[hfield_start:hfield_end]
+  
